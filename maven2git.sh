@@ -53,6 +53,14 @@ if [ -n "$PREFIX" ]; then
     $RSYNC_CMD "$mirror/$prefix_dir" "$cache_dir/$prefix_dir"
     mapfile -t target_dirs < <(find "$cache_dir/$prefix_dir" | grep -E 'maven-metadata\.xml$' | sed -E 's$^'$cache_dir'/(.*)/maven-metadata.xml$\1$')
     ALREADY_SYNCED=1
+
+    out_repo="$repos_dir/$prefix_dir"
+    if [ -d "$out_repo" ]; then
+        echo "Error: Repository already exists at $out_repo"
+        exit 1
+    fi
+    mkdir -p "$out_repo"
+    git init "$out_repo"
 else
     target_dirs=()
     for target in "${POSITIONAL[@]}"; do
@@ -61,26 +69,31 @@ else
     done
 fi
 
-
 for target_dir in "${target_dirs[@]}"; do
     artifactid=$(basename "$target_dir")
 
-    mkdir -p "$cache_dir/$target_dir"
-
     if [ $ALREADY_SYNCED -eq 0 ]; then
+        mkdir -p "$cache_dir/$target_dir"
         $RSYNC_CMD "$mirror/$target_dir" "$cache_dir/$target_dir"
     fi
 
     # Note: versions are already sorted in maven-metadata.xml
     versions=$(grep -oP "<version>.*</version>" "$cache_dir/$target_dir/maven-metadata.xml" | sed -e 's/<version>\(.*\)<\/version>/\1/')
 
-    out_repo="$repos_dir/$target_dir"
-    if [ -d "$out_repo" ]; then
-        echo "Error: Repository already exists at $out_repo"
-        exit 1
+    if [ -n "$PREFIX" ]; then
+        out_path="$out_repo/$target_dir"
+        mkdir -p "$out_path"
+        git checkout --orphan "$targetdir"
+    else
+        out_repo="$repos_dir/$target_dir"
+        if [ -d "$out_repo" ]; then
+            echo "Error: Repository already exists at $out_repo"
+            exit 1
+        fi
+        mkdir -p "$out_repo"
+        git init "$out_repo"
+        out_path="$out_repo"
     fi
-    mkdir -p "$out_repo"
-    git init "$out_repo"
 
     for version in $versions; do
         echo "Processing $artifactid:$version"
@@ -91,15 +104,20 @@ for target_dir in "${target_dirs[@]}"; do
         cp -r "$base_path.pom" "$out_repo/pom.xml"
         if [ -f "$base_path-sources.jar" ]; then
             mkdir -p "$out_repo/sources"
-            unzip -q "$base_path-sources.jar" -d "$out_repo/sources"
+            unzip -q "$base_path-sources.jar" -d "$out_path/sources"
         fi
         if [ -f "$base_path-javadoc.jar" ]; then
             mkdir -p "$out_repo/javadoc"
-            unzip -q "$base_path-javadoc.jar" -d "$out_repo/javadoc"
+            unzip -q "$base_path-javadoc.jar" -d "$out_path/javadoc"
         fi
         git -C "$out_repo" add .
         git -C "$out_repo" commit -q -m "Add $artifactid-$version"
     done
 
-    echo "Done. Repository is at $out_repo"
+    echo "Done with $out_repo"
 done
+
+if [ -n "$PREFIX" ]; then
+    git -C "$out_repo" checkout --orphan main
+    git merge "${target_dirs[@]}"
+fi
