@@ -43,16 +43,16 @@ for target_dir in "${target_dirs[@]}"; do
     artifactid=$(basename "$target_dir")
     out_path="$repos_dir/$target_dir"
 
-    $GIT checkout --orphan "$target_dir"
-    rm -rf "${out_repo:?}/"*
-    mkdir -p "$out_path"
-
     versions=$(grep -oP "<version>.*</version>" "$cache_dir/$target_dir/maven-metadata.xml" | sed -e 's/<version>\(.*\)<\/version>/\1/')
 
     if [ -z "$versions" ]; then
         echo "Warning: No versions found for $artifactid in $target_dir"
         continue
     fi
+
+    $GIT checkout --orphan "$target_dir"
+    rm -rf "${out_repo:?}/"*
+    mkdir -p "$out_path"
 
     for version in $versions; do
         echo "Processing $artifactid:$version"
