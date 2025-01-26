@@ -41,12 +41,13 @@ done
 
 cache_dir="./cache"
 repos_dir="./repos"
-mirror="gs://maven-central/maven2"
-
+mirror="gs://maven-central-asia/maven2"
 
 if [ -n "$PREFIX" ]; then
     prefix_dir=$(echo $PREFIX | tr ':.' '/')
-    target_dirs=$(gsutil ls -r "$mirror/$prefix_dir" |  grep -E 'maven-metadata\.xml$' | sed -E 's$^gs://maven-central/maven2/(.*)/maven-metadata.xml$\1$')
+    gsutil -m rsync -r "$mirror/$prefix_dir" "$cache_dir/$prefix_dir"
+    target_dirs=($(find "$cache_dir/$prefix_dir" | grep -E 'maven-metadata\.xml$' | sed -E 's$^'$cache_dir'/(.*)/maven-metadata.xml$\1$'))
+    echo "$target_dirs"
 else
     target_dirs=()
     for target in "${POSITIONAL[@]}"; do
