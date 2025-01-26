@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -xeuo pipefail
 
 shopt -u dotglob # do not include hidden files in globs
 
@@ -34,6 +34,8 @@ mkdir -p "$out_repo"
 git init "$out_repo"
 GIT="git -C $out_repo"
 
+$GIT config gc.auto 0
+
 #$RSYNC_CMD "$mirror/$prefix_dir" "$cache_dir/$prefix_dir"
 mapfile -t target_dirs < <(find "$cache_dir/$prefix_dir" | grep -E 'maven-metadata\.xml$' | sed -E 's$^'$cache_dir'/(.*)/maven-metadata.xml$\1$')
 
@@ -63,11 +65,15 @@ for target_dir in "${target_dirs[@]}"; do
             unzip -q "$base_path-javadoc.jar" -d "$out_path/javadoc"
         fi
         $GIT add .
-        $GIT commit -q -m "Add $artifactid-$version"
+        $GIT commit -q -m "Add $artifactid-$version" --allow-empty
     done
 
+
+    $GIT gc
     echo "Done with $target_dir"
 done
 
 $GIT checkout --orphan main
 $GIT merge "${target_dirs[@]}"
+$GIT config gc.auto 0
+$GIT gc --aggressive
