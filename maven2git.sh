@@ -39,11 +39,13 @@ $GIT config gc.auto 0
 #$RSYNC_CMD "$mirror/$prefix_dir" "$cache_dir/$prefix_dir"
 mapfile -t target_dirs < <(find "$cache_dir/$prefix_dir" | grep -E 'maven-metadata\.xml$' | sed -E 's$^'$cache_dir'/(.*)/maven-metadata.xml$\1$')
 
+TO_MERGE=()
+
 for target_dir in "${target_dirs[@]}"; do
     artifactid=$(basename "$target_dir")
     out_path="$repos_dir/$target_dir"
 
-    versions=$(grep -oP "<version>.*</version>" "$cache_dir/$target_dir/maven-metadata.xml" | sed -e 's/<version>\(.*\)<\/version>/\1/')
+    versions=$(grep -oP "<version>.*</version>" "$cache_dir/$target_dir/maven-metadata.xml" | sed -e 's/<version>\(.*\)<\/version>/\1/' || true)
 
     if [ -z "$versions" ]; then
         echo "Warning: No versions found for $artifactid in $target_dir"
@@ -53,6 +55,7 @@ for target_dir in "${target_dirs[@]}"; do
     $GIT checkout --orphan "$target_dir"
     rm -rf "${out_repo:?}/"*
     mkdir -p "$out_path"
+    TO_MERGE+=("$target_dir")
 
     for version in $versions; do
         echo "Processing $artifactid:$version"
@@ -79,6 +82,6 @@ for target_dir in "${target_dirs[@]}"; do
 done
 
 $GIT checkout --orphan main
-$GIT merge "${target_dirs[@]}"
+$GIT merge "${TO_MERGE[@]}"
 $GIT config gc.auto 0
 $GIT gc --aggressive
