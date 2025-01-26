@@ -38,28 +38,25 @@ cache_dir="./cache"
 repos_dir="./repos"
 mirror="gs://maven-central-asia/maven2"
 
-ALREADY_SYNCED=0
-
 RSYNC_CMD="gcloud storage rsync -r --gzip-in-flight=.xml,.pom --exclude=.*\.(asc|sha1|md5)$"
 
-if [ -n "$PREFIX" ]; then
-    prefix_dir=$(echo "$PREFIX" | tr ':.' '/')
-    $RSYNC_CMD "$mirror/$prefix_dir" "$cache_dir/$prefix_dir"
-    mapfile -t target_dirs < <(find "$cache_dir/$prefix_dir" | grep -E 'maven-metadata\.xml$' | sed -E 's$^'$cache_dir'/(.*)/maven-metadata.xml$\1$')
-    ALREADY_SYNCED=1
+prefix_dir=$(echo "$PREFIX" | tr ':.' '/')
+$RSYNC_CMD "$mirror/$prefix_dir" "$cache_dir/$prefix_dir"
+mapfile -t target_dirs < <(find "$cache_dir/$prefix_dir" | grep -E 'maven-metadata\.xml$' | sed -E 's$^'$cache_dir'/(.*)/maven-metadata.xml$\1$')
 
-    out_repo="$repos_dir/$prefix_dir"
-    if [ -d "$out_repo" ]; then
-        echo "Error: Repository already exists at $out_repo"
-        exit 1
-    fi
-    mkdir -p "$out_repo"
-    git init "$out_repo"
+out_repo="$repos_dir/$prefix_dir"
+if [ -d "$out_repo" ]; then
+    echo "Error: Repository already exists at $out_repo"
+    exit 1
+fi
+mkdir -p "$out_repo"
+git init "$out_repo"
+for target_dir in "${target_dirs[@]}"; do
     artifactid=$(basename "$target_dir")
 
     out_path="$out_repo/$target_dir"
     mkdir -p "$out_path"
-    git checkout --orphan "$targetdir"
+    git checkout --orphan "$target_dir"
 
     versions=$(grep -oP "<version>.*</version>" "$cache_dir/$target_dir/maven-metadata.xml" | sed -e 's/<version>\(.*\)<\/version>/\1/')
 
