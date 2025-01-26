@@ -49,6 +49,11 @@ for target_dir in "${target_dirs[@]}"; do
 
     versions=$(grep -oP "<version>.*</version>" "$cache_dir/$target_dir/maven-metadata.xml" | sed -e 's/<version>\(.*\)<\/version>/\1/')
 
+    if [ -z "$versions" ]; then
+        echo "Warning: No versions found for $artifactid in $target_dir"
+        continue
+    fi
+
     for version in $versions; do
         echo "Processing $artifactid:$version"
 
