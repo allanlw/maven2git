@@ -4,27 +4,12 @@ set -euo pipefail
 
 shopt -u dotglob # do not include hidden files in globs
 
-# getopt parsing (only --prefix which takes one argument)
-PREFIX=""
-while [[ $# -gt 0 ]]; do
-    key="$1"
-    case $key in
-        --prefix)
-            PREFIX="$2"
-            shift
-            shift
-            ;;
-        *)
-            POSITIONAL+=("$1")
-            shift
-            ;;
-    esac
-done
-
-if [ -z "$PREFIX" ]; then
-    echo "Usage: $0 --prefix PREFIX"
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 PREFIX"
     exit 1
 fi
+
+PREFIX="$1"
 
 required_tools=(git gcloud unzip)
 for tool in "${required_tools[@]}"; do
