@@ -43,11 +43,13 @@ cache_dir="./cache"
 repos_dir="./repos"
 mirror="gs://maven-central-asia/maven2"
 
+ALREADY_SYNCED=0
+
 if [ -n "$PREFIX" ]; then
     prefix_dir=$(echo $PREFIX | tr ':.' '/')
     gsutil -m rsync -r "$mirror/$prefix_dir" "$cache_dir/$prefix_dir"
     target_dirs=($(find "$cache_dir/$prefix_dir" | grep -E 'maven-metadata\.xml$' | sed -E 's$^'$cache_dir'/(.*)/maven-metadata.xml$\1$'))
-    echo "$target_dirs"
+    ALREADY_SYNCED=1
 else
     target_dirs=()
     for target in "${POSITIONAL[@]}"; do
@@ -62,7 +64,9 @@ for target_dir in "${target_dirs[@]}"; do
 
     mkdir -p "$cache_dir/$target_dir"
 
-    gsutil -m rsync -r "$mirror/$target_dir" "$cache_dir/$target_dir"
+    if [ $ALREADY_SYNCED -eq 0 ]; then
+        gsutil -m rsync -r "$mirror/$target_dir" "$cache_dir/$target_dir"
+    fi
 
     # Note: versions are already sorted in maven-metadata.xml
     versions=$(grep -oP "<version>.*</version>" "$cache_dir/$target_dir/maven-metadata.xml" | sed -e 's/<version>\(.*\)<\/version>/\1/')
