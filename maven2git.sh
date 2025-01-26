@@ -6,6 +6,7 @@ shopt -u dotglob # do not include hidden files in globs
 
 # getopt parsing (any number of positional arguments, or --prefix which takes one argument)
 POSITIONAL=()
+PREFIX=""
 while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
@@ -31,7 +32,7 @@ if [ -n "$PREFIX" ] && [ ${#POSITIONAL[@]} -gt 0 ]; then
     exit 1
 fi
 
-required_tools=(git gsutil unzip)
+required_tools=(git gcloud unzip)
 for tool in "${required_tools[@]}"; do
   if ! command -v $tool &> /dev/null; then
     echo "Error: $tool is not installed"
@@ -45,9 +46,11 @@ mirror="gs://maven-central-asia/maven2"
 
 ALREADY_SYNCED=0
 
+RSYNC_CMD="gcloud storage rsync -r --gzip-in-flight=.xml,.pom --exclude=.*\.(asc|sha1|md5)$"
+
 if [ -n "$PREFIX" ]; then
     prefix_dir=$(echo $PREFIX | tr ':.' '/')
-    gsutil -m rsync -r "$mirror/$prefix_dir" "$cache_dir/$prefix_dir"
+    $RSYNC_CMD "$mirror/$prefix_dir" "$cache_dir/$prefix_dir"
     target_dirs=($(find "$cache_dir/$prefix_dir" | grep -E 'maven-metadata\.xml$' | sed -E 's$^'$cache_dir'/(.*)/maven-metadata.xml$\1$'))
     ALREADY_SYNCED=1
 else
@@ -65,7 +68,7 @@ for target_dir in "${target_dirs[@]}"; do
     mkdir -p "$cache_dir/$target_dir"
 
     if [ $ALREADY_SYNCED -eq 0 ]; then
-        gsutil -m rsync -r "$mirror/$target_dir" "$cache_dir/$target_dir"
+        $RSYNC_CMD "$mirror/$target_dir" "$cache_dir/$target_dir"
     fi
 
     # Note: versions are already sorted in maven-metadata.xml
@@ -83,7 +86,7 @@ for target_dir in "${target_dirs[@]}"; do
         echo "Processing $artifactid:$version"
 
         rm -fr "$out_repo/"*
-        
+
         base_path="$cache_dir/$target_dir/$version/$artifactid-$version"
         cp -r "$base_path.pom" "$out_repo/pom.xml"
         if [ -f "$base_path-sources.jar" ]; then
