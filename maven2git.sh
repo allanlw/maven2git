@@ -34,7 +34,7 @@ fi
 
 required_tools=(git gcloud unzip)
 for tool in "${required_tools[@]}"; do
-  if ! command -v $tool &> /dev/null; then
+  if ! command -v "$tool" &> /dev/null; then
     echo "Error: $tool is not installed"
     exit 1
   fi
@@ -49,21 +49,21 @@ ALREADY_SYNCED=0
 RSYNC_CMD="gcloud storage rsync -r --gzip-in-flight=.xml,.pom --exclude=.*\.(asc|sha1|md5)$"
 
 if [ -n "$PREFIX" ]; then
-    prefix_dir=$(echo $PREFIX | tr ':.' '/')
+    prefix_dir=$(echo "$PREFIX" | tr ':.' '/')
     $RSYNC_CMD "$mirror/$prefix_dir" "$cache_dir/$prefix_dir"
-    target_dirs=($(find "$cache_dir/$prefix_dir" | grep -E 'maven-metadata\.xml$' | sed -E 's$^'$cache_dir'/(.*)/maven-metadata.xml$\1$'))
+    mapfile -t target_dirs < <(find "$cache_dir/$prefix_dir" | grep -E 'maven-metadata\.xml$' | sed -E 's$^'$cache_dir'/(.*)/maven-metadata.xml$\1$')
     ALREADY_SYNCED=1
 else
     target_dirs=()
     for target in "${POSITIONAL[@]}"; do
-        target_dir=$(echo $target | tr ':.' '/')
+        target_dir=$(echo "$target" | tr ':.' '/')
         target_dirs+=("$target_dir")
     done
 fi
 
 
 for target_dir in "${target_dirs[@]}"; do
-    artifactid=$(basename $target_dir)
+    artifactid=$(basename "$target_dir")
 
     mkdir -p "$cache_dir/$target_dir"
 
@@ -85,7 +85,7 @@ for target_dir in "${target_dirs[@]}"; do
     for version in $versions; do
         echo "Processing $artifactid:$version"
 
-        rm -fr "$out_repo/"*
+        rm -rf "${out_repo:?}/"*
 
         base_path="$cache_dir/$target_dir/$version/$artifactid-$version"
         cp -r "$base_path.pom" "$out_repo/pom.xml"
